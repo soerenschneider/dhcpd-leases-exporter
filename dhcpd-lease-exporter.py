@@ -72,10 +72,10 @@ class DhcpdLeasesExporter:
             # use default REGISTRY expose process metrics if the metrics server is used
             self._reg = REGISTRY
 
-        self._metric_lease_start = Gauge(f"{prefix}_lease_start_timestamp", "Description of gauge", ["mac", "ip", "name"], registry=self._reg)
-        self._metric_lease_end = Gauge(f"{prefix}_lease_end_timestamp", "Description of gauge", ["mac", "ip", "name"], registry=self._reg)
-        self._metric_entries = Counter(f"{prefix}_leases_total", "a", registry=self._reg)
-        self._metric_parse_errors = Counter(f"{prefix}_parsing_errors", "a", registry=self._reg)
+        self._metric_lease_start = Gauge(f"{prefix}_lease_start_timestamp", "Lease start timestamp", ["mac", "ip", "name"], registry=self._reg)
+        self._metric_lease_end = Gauge(f"{prefix}_lease_end_timestamp", "Lease end timestamp", ["mac", "ip", "name"], registry=self._reg)
+        self._metric_entries = Counter(f"{prefix}_leases_total", "Total leases", registry=self._reg)
+        self._metric_parse_errors = Counter(f"{prefix}_parsing_errors", "Errors while parsing leases", registry=self._reg)
 
     @staticmethod
     def parseDate(date: str) -> datetime:
