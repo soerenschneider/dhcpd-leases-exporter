@@ -1,0 +1,12 @@
+lease 192.168.4.150 {
+	starts 2 2020/01/21 22:11:49 UTC;
+	ends 3 2020/01/22 10:11:49 UTC;
+	hardware ethernet ff:ee:dd:cc:bb:aa;
+	client-hostname "client-1";
+}
+lease 192.168.3.150 {
+	starts 3 2020/01/22 17:25:52 UTC;
+	ends 4 2020/01/23 05:25:52 UTC;
+	hardware ethernet aa:bb:cc:dd:ee:ff;
+	client-hostname "client-2";
+}
