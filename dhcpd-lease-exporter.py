@@ -9,9 +9,10 @@ from dataclasses import dataclass
 
 from prometheus_client import start_http_server, write_to_textfile, REGISTRY, CollectorRegistry, Gauge, Counter
 
-pattern = r"lease ([0-9.]+) {.*?starts \d (.*?);.*?ends \d (.*?);.*?hardware ethernet ([:a-f0-9]+);.*?client-hostname \"(.*?)\";.*?}"
-regex = re.compile(pattern, re.MULTILINE | re.DOTALL)
-default_prefix = "dhcpd_leases"
+PATTERN = r"lease ([0-9.]+) {.*?starts \d (.*?);.*?ends \d (.*?);.*?hardware ethernet ([:a-f0-9]+);.*?client-hostname \"(.*?)\";.*?}"
+REGEX = re.compile(PATTERN, re.MULTILINE | re.DOTALL)
+DEFAULT_PREFIX = "dhcpd_leases"
+
 
 class PrometheusConfig:
     def __init__(self, textfile=None, port=None): 
@@ -23,6 +24,18 @@ class PrometheusConfig:
 
         self._textfile = textfile
         self._port = port
+
+        if textfile:
+            self.reg = CollectorRegistry()
+        else:
+            # use default REGISTRY expose process metrics if the metrics server is used
+            self.reg = REGISTRY
+            start_http_server(self._port, registry=self.reg)
+
+
+    def persist_metrics(self):
+        if self._textfile:
+            write_to_textfile(self._textfile, self.reg)
 
     @property
     def textfile(self):
@@ -60,22 +73,16 @@ class DhcpdLeasesExporter:
         self._prom_config = prom_config
 
         if not prefix:
-            prefix = default_prefix
+            prefix = DEFAULT_PREFIX
+
+        self._metric_lease_start = Gauge(f"{prefix}_lease_start_timestamp", "Lease start timestamp", ["mac", "ip", "name"], registry=prom_config.reg)
+        self._metric_lease_end = Gauge(f"{prefix}_lease_end_timestamp", "Lease end timestamp", ["mac", "ip", "name"], registry=prom_config.reg)
+        self._metric_entries = Counter(f"{prefix}_leases_total", "Total leases", registry=prom_config.reg)
+        self._metric_parse_errors = Counter(f"{prefix}_parsing_errors", "Errors while parsing leases", registry=prom_config.reg)
 
         if not os.path.exists(leases_path):
             raise ValueError(f"No such file: {leases_path}")
         self._leases_path = leases_path
-
-        if prom_config.textfile:
-            self._reg = CollectorRegistry()
-        else:
-            # use default REGISTRY expose process metrics if the metrics server is used
-            self._reg = REGISTRY
-
-        self._metric_lease_start = Gauge(f"{prefix}_lease_start_timestamp", "Lease start timestamp", ["mac", "ip", "name"], registry=self._reg)
-        self._metric_lease_end = Gauge(f"{prefix}_lease_end_timestamp", "Lease end timestamp", ["mac", "ip", "name"], registry=self._reg)
-        self._metric_entries = Counter(f"{prefix}_leases_total", "Total leases", registry=self._reg)
-        self._metric_parse_errors = Counter(f"{prefix}_parsing_errors", "Errors while parsing leases", registry=self._reg)
 
     @staticmethod
     def parseDate(date: str) -> datetime:
@@ -84,41 +91,33 @@ class DhcpdLeasesExporter:
     def scrape(self):
         if self._prom_config.textfile:
             entries = self.parse_file()
-            self.write_metrics(entries)
-            write_to_textfile(self._prom_config.textfile, self._reg)
+            self._prom_config.persist_metrics()
         else:
-            start_http_server(self._prom_config.port, registry=self._reg)
             while True:
                 entries = self.parse_file()
-                self.write_metrics(entries)
                 time.sleep(30)
 
-    def write_metrics(self, entries):
-        for lease in entries:
-            ends_unix = lease.ends.strftime("%s")
-            self._metric_lease_end.labels(lease.mac, lease.ip, lease.name).set(ends_unix)
-            
-            starts_unix = lease.starts.strftime("%s")
-            self._metric_lease_start.labels(lease.mac, lease.ip, lease.name).set(starts_unix)
-
-            self._metric_entries.inc()
-
-    def parse_file(self):
+    def parse_file(self) -> list:
         leases = list()
         with open(self._leases_path) as f:
-            for match in regex.finditer(f.read()):
+            for match in REGEX.finditer(f.read()):
                 if len(match.groups()) < 5:
                     self._metric_parse_errors.inc()
                     return
-
-                ip = match.group(1)
-                mac = match.group(4)
-                name = match.group(5)
                 
                 starts = DhcpdLeasesExporter.parseDate(match.group(2))
                 ends = DhcpdLeasesExporter.parseDate(match.group(3))
+                
+                lease = Lease(ip=match.group(1), mac=match.group(4), name=match.group(5), starts=starts, ends=ends)
 
-                lease = Lease(ip=ip, mac=mac, name=name, starts=starts, ends=ends)
+                ends_unix = lease.ends.strftime("%s")
+                self._metric_lease_end.labels(lease.mac, lease.ip, lease.name).set(ends_unix)
+                
+                starts_unix = lease.starts.strftime("%s")
+                self._metric_lease_start.labels(lease.mac, lease.ip, lease.name).set(starts_unix)
+
+                self._metric_entries.inc()
+
                 leases.append(lease)
 
         return leases
