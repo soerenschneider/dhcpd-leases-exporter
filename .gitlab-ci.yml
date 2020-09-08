@@ -9,7 +9,7 @@ test:integration:
   - apt-get update && apt-get -y install make
   - make integrationtests
 
-pylint:
+test:pylint:
   stage: test
   image: python:3-slim
   before_script:
@@ -25,7 +25,7 @@ pylint:
     paths:
       - ./pylint/
 
-build_and_push:push
+build_and_push:push:
   image: docker:latest
   services:
     - docker:dind
