@@ -4,11 +4,11 @@ WORKDIR /opt/dle
 COPY requirements.txt /opt/dle/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY dhcpd-lease-exporter.py /opt/
+COPY dhcpd_lease_exporter.py /opt/
 
 RUN useradd toor
 USER toor
 
 ENV PYTHONPATH /opt/
 
-ENTRYPOINT ["python3", "/opt/dhcpd-lease-exporter.py"]
+ENTRYPOINT ["python3", "/opt/dhcpd_lease_exporter.py"]
