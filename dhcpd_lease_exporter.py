@@ -1,3 +1,5 @@
+""" Simple prometheus exporter for dhcpd """
+
 import os
 import re
 import sys
@@ -7,7 +9,8 @@ import argparse
 
 from dataclasses import dataclass
 
-from prometheus_client import start_http_server, write_to_textfile, REGISTRY, CollectorRegistry, Gauge, Counter
+from prometheus_client import start_http_server, write_to_textfile
+from prometheus_client import REGISTRY, CollectorRegistry, Gauge, Counter
 
 PATTERN = r"lease ([0-9.]+) {.*?starts \d (.*?);.*?ends \d (.*?);.*?hardware ethernet ([:a-f0-9]+);.*?client-hostname \"(.*?)\";.*?}"
 REGEX = re.compile(PATTERN, re.MULTILINE | re.DOTALL)
@@ -15,7 +18,9 @@ DEFAULT_PREFIX = "dhcpd_leases"
 
 
 class PrometheusConfig:
-    def __init__(self, textfile=None, port=None): 
+    """ Encapsulates the prometheus configuration """
+
+    def __init__(self, textfile=None, port=None):
         if port and textfile:
             raise ValueError("Can only supply textfile or port, not both")
 
@@ -34,13 +39,14 @@ class PrometheusConfig:
 
 
     def persist_metrics(self):
+        """ writes the metrics to disk """
         if self._textfile:
             write_to_textfile(self._textfile, self.reg)
 
     @property
     def textfile(self):
         return self._textfile
-    
+
     @textfile.setter
     def textfile(self, value):
         self._textfile = value
@@ -59,14 +65,16 @@ class PrometheusConfig:
 
 @dataclass
 class Lease:
+    """ Dataclass representation of a single lease """
     mac: str
-    ip: str
+    ip_addr: str
     name: str
     starts: datetime
     ends: datetime
 
 
 class DhcpdLeasesExporter:
+    """ The Exporter """
     def __init__(self, leases_path: str, prom_config: PrometheusConfig, prefix=None):
         if not prom_config:
             raise ValueError("No prometheus config supplied")
@@ -85,36 +93,38 @@ class DhcpdLeasesExporter:
         self._leases_path = leases_path
 
     @staticmethod
-    def parseDate(date: str) -> datetime:
+    def parse_date(date: str) -> datetime:
+        """ parses the dhcpd date into a datetime object """
         return datetime.datetime.strptime(date, "%Y/%m/%d %H:%M:%S %Z")
 
     def scrape(self):
         if self._prom_config.textfile:
-            entries = self.parse_file()
+            self.parse_file()
             self._prom_config.persist_metrics()
         else:
             while True:
-                entries = self.parse_file()
+                self.parse_file()
                 time.sleep(30)
 
     def parse_file(self) -> list:
+        """ reads and parses the leases file and returns a list of the lease objects """
         leases = list()
-        with open(self._leases_path) as f:
-            for match in REGEX.finditer(f.read()):
+        with open(self._leases_path) as regex_file:
+            for match in REGEX.finditer(regex_file.read()):
                 if len(match.groups()) < 5:
                     self._metric_parse_errors.inc()
-                    return
-                
-                starts = DhcpdLeasesExporter.parseDate(match.group(2))
-                ends = DhcpdLeasesExporter.parseDate(match.group(3))
-                
-                lease = Lease(ip=match.group(1), mac=match.group(4), name=match.group(5), starts=starts, ends=ends)
+                    return leases
+
+                starts = DhcpdLeasesExporter.parse_date(match.group(2))
+                ends = DhcpdLeasesExporter.parse_date(match.group(3))
+
+                lease = Lease(ip_addr=match.group(1), mac=match.group(4), name=match.group(5), starts=starts, ends=ends)
 
                 ends_unix = lease.ends.strftime("%s")
-                self._metric_lease_end.labels(lease.mac, lease.ip, lease.name).set(ends_unix)
-                
+                self._metric_lease_end.labels(lease.mac, lease.ip_addr, lease.name).set(ends_unix)
+
                 starts_unix = lease.starts.strftime("%s")
-                self._metric_lease_start.labels(lease.mac, lease.ip, lease.name).set(starts_unix)
+                self._metric_lease_start.labels(lease.mac, lease.ip_addr, lease.name).set(starts_unix)
 
                 self._metric_entries.inc()
 
@@ -124,6 +134,7 @@ class DhcpdLeasesExporter:
 
 
 def parse_args():
+    """ Parses cli arguments and returns a parsed Namespace object. """
     parser = argparse.ArgumentParser(prog="dhcpd-leases-exporter")
     parser.add_argument("-l", "--leases", dest="leases", action="store", required=True)
 
@@ -133,14 +144,18 @@ def parse_args():
 
     return parser.parse_args()
 
-if __name__ == "__main__":
+def main():
+    """ the entrypoint of the exporter """
     args = parse_args()
     exporter = None
     try:
         conf = PrometheusConfig(port=args.prom_port, textfile=args.prom_textfile)
         exporter = DhcpdLeasesExporter(args.leases, conf)
-    except ValueError as e:
-        print(f"Invalid config: {str(e)}")
+    except ValueError as err:
+        print(f"Invalid config: {str(err)}")
         sys.exit(1)
 
     exporter.scrape()
+
+if __name__ == "__main__":
+    main()
