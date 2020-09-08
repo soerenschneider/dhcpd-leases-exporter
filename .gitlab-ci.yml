@@ -17,7 +17,7 @@ test:pylint:
     - make venv-pylint
   script:
     - mkdir ./pylint
-    - venv/bin/pylint --output-format=text fail2ban_exporter.py | tee ./pylint/pylint.log || venv/bin/pylint-exit $?
+    - venv/bin/pylint --output-format=text dhcpd_lease_exporter.py | tee ./pylint/pylint.log || venv/bin/pylint-exit $?
     - PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint/pylint.log)
     - venv/bin/anybadge --label=Pylint --file=pylint/pylint.svg --value=${PYLINT_SCORE} 2=red 4=orange 8=yellow 10=green
     - echo "Pylint score is $PYLINT_SCORE"
