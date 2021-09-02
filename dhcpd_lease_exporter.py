@@ -37,31 +37,31 @@ class PrometheusConfig:
             self.reg = REGISTRY
             start_http_server(self._port, registry=self.reg)
 
-
-    def persist_metrics(self):
+    def persist_metrics(self) -> None:
         """ writes the metrics to disk """
         if self._textfile:
             write_to_textfile(self._textfile, self.reg)
 
     @property
-    def textfile(self):
+    def textfile(self) -> str:
         return self._textfile
 
     @textfile.setter
-    def textfile(self, value):
+    def textfile(self, value) -> None:
         self._textfile = value
 
     @property
-    def port(self):
+    def port(self) -> int:
         return self._port
 
     @port.setter
-    def port(self, value: int):
+    def port(self, value: int) -> None:
         if not isinstance(value, int):
             raise ValueError("port must be integer")
         if 0 >= value < 65536:
             raise ValueError("port must be in range 0 < port < 65536")
         self._port = value
+
 
 @dataclass
 class Lease:
@@ -97,7 +97,7 @@ class DhcpdLeasesExporter:
         """ parses the dhcpd date into a datetime object """
         return datetime.datetime.strptime(date, "%Y/%m/%d %H:%M:%S %Z")
 
-    def scrape(self):
+    def scrape(self) -> None:
         if self._prom_config.textfile:
             self.parse_file()
             self._prom_config.persist_metrics()
