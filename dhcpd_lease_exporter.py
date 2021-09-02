@@ -144,6 +144,7 @@ def parse_args():
 
     return parser.parse_args()
 
+
 def main():
     """ the entrypoint of the exporter """
     args = parse_args()
@@ -156,6 +157,7 @@ def main():
         sys.exit(1)
 
     exporter.scrape()
+
 
 if __name__ == "__main__":
     main()
