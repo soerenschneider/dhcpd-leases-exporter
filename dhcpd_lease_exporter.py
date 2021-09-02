@@ -108,8 +108,8 @@ class DhcpdLeasesExporter:
 
     def parse_file(self) -> list:
         """ reads and parses the leases file and returns a list of the lease objects """
-        leases = list()
-        with open(self._leases_path) as regex_file:
+        leases = []
+        with open(self._leases_path, 'r', encoding='utf-8') as regex_file:
             for match in REGEX.finditer(regex_file.read()):
                 if len(match.groups()) < 5:
                     self._metric_parse_errors.inc()
