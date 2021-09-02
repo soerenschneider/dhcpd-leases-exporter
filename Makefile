@@ -1,4 +1,4 @@
-integrationtests: venv
+integrationtest: venv
 	if [ -f output.prom ]; then rm output.prom; fi
 	venv/bin/python3 dhcpd_lease_exporter.py -l example.leases -t output.prom
 	if [ ! -f output.prom ]; then exit 1; fi
@@ -13,6 +13,8 @@ venv:
 
 venv-pylint: venv
 	venv/bin/pip3 install pylint pylint-exit anybadge
+
+tests: integrationtest
 
 lint:
 	venv/bin/pylint --output-format=text *.py
