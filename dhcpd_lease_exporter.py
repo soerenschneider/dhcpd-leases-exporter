@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from prometheus_client import start_http_server, write_to_textfile
 from prometheus_client import REGISTRY, CollectorRegistry, Gauge, Counter
 
-PATTERN = r"lease ([0-9.]+) {.*?starts \d (.*?);.*?ends \d (.*?);.*?hardware ethernet ([:a-f0-9]+);.*?client-hostname \"(.*?)\";.*?}"
+PATTERN = r"lease ([0-9.]+) {.*?starts \d (.*?);.*?ends \d (.*?);.*?hardware ethernet ([:a-f0-9]+);.*?(client-hostname \"(.*?)\";.*?)?}"
 REGEX = re.compile(PATTERN, re.MULTILINE | re.DOTALL)
 DEFAULT_PREFIX = "dhcpd_leases"
 
@@ -118,7 +118,7 @@ class DhcpdLeasesExporter:
                 starts = DhcpdLeasesExporter.parse_date(match.group(2))
                 ends = DhcpdLeasesExporter.parse_date(match.group(3))
 
-                lease = Lease(ip_addr=match.group(1), mac=match.group(4), name=match.group(5), starts=starts, ends=ends)
+                lease = Lease(ip_addr=match.group(1), mac=match.group(4), name=match.group(6), starts=starts, ends=ends)
 
                 ends_unix = lease.ends.strftime("%s")
                 self._metric_lease_end.labels(lease.mac, lease.ip_addr, lease.name).set(ends_unix)
